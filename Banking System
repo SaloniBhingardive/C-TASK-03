@@ -1,0 +1,267 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <ctime>
+
+using namespace std;
+
+// Class to represent a Transaction
+class Transaction {
+public:
+    enum Type { DEPOSIT, WITHDRAWAL, TRANSFER };
+    
+    Transaction(Type type, double amount, const string& date) 
+        : type(type), amount(amount), date(date) {}
+
+    void display() const {
+        cout << "Type: " << (type == DEPOSIT ? "Deposit" : (type == WITHDRAWAL ? "Withdrawal" : "Transfer"))
+             << ", Amount: $" << amount
+             << ", Date: " << date << endl;
+    }
+
+private:
+    Type type;
+    double amount;
+    string date;
+};
+
+// Class to represent an Account
+class Account {
+public:
+    Account(int id, double balance = 0.0) 
+        : id(id), balance(balance) {}
+
+    int getId() const { return id; }
+    double getBalance() const { return balance; }
+    
+    void deposit(double amount) {
+        balance += amount;
+        transactions.push_back(Transaction(Transaction::DEPOSIT, amount, getCurrentDate()));
+    }
+    
+    bool withdraw(double amount) {
+        if (amount > balance) {
+            cout << "Insufficient funds for withdrawal." << endl;
+            return false;
+        }
+        balance -= amount;
+        transactions.push_back(Transaction(Transaction::WITHDRAWAL, amount, getCurrentDate()));
+        return true;
+    }
+    
+    bool transfer(Account& toAccount, double amount) {
+        if (withdraw(amount)) {
+            toAccount.deposit(amount);
+            transactions.push_back(Transaction(Transaction::TRANSFER, amount, getCurrentDate()));
+            return true;
+        }
+        return false;
+    }
+    
+    void display() const {
+        cout << "Account ID: " << id
+             << ", Balance: $" << balance << endl;
+        cout << "Transactions: " << endl;
+        for (const auto& txn : transactions) {
+            txn.display();
+        }
+    }
+
+private:
+    int id;
+    double balance;
+    vector<Transaction> transactions;
+
+    string getCurrentDate() const {
+        time_t t = time(nullptr);
+        tm* tm_info = localtime(&t);
+        char buffer[26];
+        strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+        return string(buffer);
+    }
+};
+
+// Class to represent a Customer
+class Customer {
+public:
+    Customer(int id, const string& name) 
+        : id(id), name(name) {}
+
+    int getId() const { return id; }
+    const string& getName() const { return name; }
+    
+    void addAccount(Account* account) {
+        accounts.push_back(account);
+    }
+    
+    Account* getAccount(int id) {
+        for (auto& account : accounts) {
+            if (account->getId() == id) return account;
+        }
+        return nullptr;
+    }
+
+    void display() const {
+        cout << "Customer ID: " << id
+             << ", Name: " << name << endl;
+        cout << "Accounts: " << endl;
+        for (const auto& account : accounts) {
+            account->display();
+        }
+    }
+
+private:
+    int id;
+    string name;
+    vector<Account*> accounts;
+};
+
+// Class to represent Banking Services
+class BankingService {
+public:
+    void addCustomer(Customer* customer) {
+        customers.push_back(customer);
+    }
+    
+    Customer* getCustomer(int id) {
+        for (auto& customer : customers) {
+            if (customer->getId() == id) return customer;
+        }
+        return nullptr;
+    }
+    
+    void displayAllCustomers() const {
+        for (const auto& customer : customers) {
+            customer->display();
+        }
+    }
+
+private:
+    vector<Customer*> customers;
+};
+
+// Function to create a new customer
+Customer* createCustomer() {
+    int id;
+    string name;
+    
+    cout << "Enter Customer ID: ";
+    cin >> id;
+    cin.ignore();  // to clear newline from the buffer
+    
+    cout << "Enter Customer Name: ";
+    getline(cin, name);
+    
+    return new Customer(id, name);
+}
+
+// Function to create a new account for a customer
+Account* createAccount() {
+    int id;
+    double balance;
+    
+    cout << "Enter Account ID: ";
+    cin >> id;
+    
+    cout << "Enter Initial Balance: ";
+    cin >> balance;
+    
+    return new Account(id, balance);
+}
+
+// Main function demonstrating the usage of the Banking System with user input
+int main() {
+    BankingService bank;
+    
+    int numCustomers;
+    cout << "Enter number of customers: ";
+    cin >> numCustomers;
+    
+    for (int i = 0; i < numCustomers; ++i) {
+        Customer* customer = createCustomer();
+        int numAccounts;
+        cout << "Enter number of accounts for this customer: ";
+        cin >> numAccounts;
+        
+        for (int j = 0; j < numAccounts; ++j) {
+            Account* account = createAccount();
+            customer->addAccount(account);
+        }
+        
+        bank.addCustomer(customer);
+    }
+    
+    int choice;
+    while (true) {
+        cout << "\nBanking System Menu:\n";
+        cout << "1. Display all customers\n";
+        cout << "2. Perform a transaction\n";
+        cout << "3. Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+        
+        if (choice == 1) {
+            bank.displayAllCustomers();
+        } else if (choice == 2) {
+            int fromCustomerId, fromAccountId, toCustomerId, toAccountId;
+            double amount;
+            
+            cout << "Enter sender Customer ID: ";
+            cin >> fromCustomerId;
+            cout << "Enter sender Account ID: ";
+            cin >> fromAccountId;
+            
+            Customer* fromCustomer = bank.getCustomer(fromCustomerId);
+            if (!fromCustomer) {
+                cout << "Customer not found." << endl;
+                continue;
+            }
+            
+            Account* fromAccount = fromCustomer->getAccount(fromAccountId);
+            if (!fromAccount) {
+                cout << "Account not found." << endl;
+                continue;
+            }
+            
+            cout << "Enter transaction amount: ";
+            cin >> amount;
+            
+            cout << "Enter receiver Customer ID (enter 0 if not applicable): ";
+            cin >> toCustomerId;
+            
+            if (toCustomerId != 0) {
+                cout << "Enter receiver Account ID: ";
+                cin >> toAccountId;
+                
+                Customer* toCustomer = bank.getCustomer(toCustomerId);
+                if (!toCustomer) {
+                    cout << "Receiver customer not found." << endl;
+                    continue;
+                }
+                
+                Account* toAccount = toCustomer->getAccount(toAccountId);
+                if (!toAccount) {
+                    cout << "Receiver account not found." << endl;
+                    continue;
+                }
+                
+                if (fromAccount->transfer(*toAccount, amount)) {
+                    cout << "Transfer successful." << endl;
+                }
+            } else {
+                if (fromAccount->withdraw(amount)) {
+                    cout << "Withdrawal successful." << endl;
+                }
+            }
+        } else if (choice == 3) {
+            break;
+        } else {
+            cout << "Invalid choice, please try again." << endl;
+        }
+    }
+    
+    // Clean up dynamically allocated memory
+    // NOTE: In a real application, use smart pointers or other resource management techniques.
+    
+    return 0;
+}
